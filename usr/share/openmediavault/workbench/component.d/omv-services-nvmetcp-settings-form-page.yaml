@@ -1,0 +1,39 @@
+version: "1.0"
+type: component
+data:
+  name: omv-services-nvmetcp-settings-form-page
+  type: formPage
+  config:
+    request:
+      service: Nvmetcp
+      get:
+        method: getSettings
+      post:
+        method: setSettings
+    fields:
+      - type: checkbox
+        name: enable
+        label: _("Enable")
+        value: false
+      - type: textInput
+        name: description
+        label: _("Description")
+        value: ""
+      - type: checkbox
+        name: auto_associate
+        label: _("Auto-associate ports and subsystems")
+        value: true
+      - type: textInput
+        name: org_domain
+        label: _("Domain")
+        value: "io.omv"
+      - type: textInput
+        name: org_date
+        label: _("Date")
+        value: "2014-08"
+    buttons:
+      - template: submit
+      - template: cancel
+        execute:
+          type: url
+          url: "/services/nvmetcp"

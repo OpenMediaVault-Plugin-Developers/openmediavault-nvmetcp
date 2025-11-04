@@ -1,0 +1,7 @@
+version: "1.0"
+type: navigation-item
+data:
+  path: "services.nvmetcp"
+  text: _("NVMe/TCP")
+  icon: "mdi:server-network"
+  url: "/services/nvmetcp"

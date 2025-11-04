@@ -1,0 +1,8 @@
+version: "1.0"
+type: navigation-item
+data:
+  path: "services.nvmetcp.subsystems"
+  text: _("Subsystems")
+  position: 20
+  icon: mdi:server
+  url: "/services/nvmetcp/subsystems"

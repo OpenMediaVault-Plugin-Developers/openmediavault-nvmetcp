@@ -1,0 +1,78 @@
+version: "1.0"
+type: component
+data:
+  name: omv-services-nvmetcp-associations-datatable-page
+  type: datatablePage
+  config:
+    autoReload: false
+    hasSearchField: true
+    stateId: b222f311-b814-11f0-8139-525400be629f
+    store:
+      proxy:
+        service: Nvmetcp
+        get:
+          method: listAssociations
+    beforeRender:
+      set:
+        - name: auto_associate
+          value: '{{ auto_associate | toboolean }}'
+    emptyState:
+      title: Associations
+      message: '{{ auto_associate ? "Auto-associate is enabled in Settings. All ports are linked to all subsystems." : "No associations yet. Add one to map ports to subsystems." }}'
+    columns:
+      - name: _("Port")
+        prop: portdesc
+        flexGrow: 1
+        sortable: true
+      - label: _("Subsystem")
+        prop: ssdesc
+        flexGrow: 3
+        sortable: true
+    actions:
+      - type: iconButton
+        icon: add
+        tooltip: _("Add")
+        execute:
+          type: formDialog
+          formDialog:
+            title: _("Add association")
+            fields:
+              - type: select
+                name: portref
+                label: _("Port")
+                valueField: uuid
+                textField: desc
+                store:
+                  proxy:
+                    service: Nvmetcp
+                    get:
+                      method: enumeratePorts
+              - type: select
+                name: subsystemref
+                label: _("Subsystem")
+                valueField: uuid
+                textField: desc
+                store:
+                  proxy:
+                    service: Nvmetcp
+                    get:
+                      method: enumerateSubsystems
+            buttons:
+              submit:
+                text: _("Add")
+                execute:
+                  type: request
+                  request:
+                    service: Nvmetcp
+                    method: setAssociation
+            successUrl: /services/nvmetcp/associations
+      - template: delete
+        execute:
+          type: request
+          request:
+            service: Nvmetcp
+            method: deleteAssociation
+            params:
+              uuid: "{{ _selected[0].uuid }}"
+
+

@@ -1,0 +1,113 @@
+version: "1.0"
+type: component
+data:
+  name: omv-services-nvmetcp-ports-datatable-page
+  type: datatablePage
+  config:
+    autoReload: false
+    hasSearchField: true
+    stateId: 77e4dc6e-b806-11f0-af17-525400be629f
+    sorters:
+      - dir: asc
+        prop: nport
+    store:
+      proxy:
+        service: Nvmetcp
+        get:
+          method: listPorts
+    columns:
+      - name: _("Address")
+        prop: addr
+        flexGrow: 2
+        sortable: true
+      - name: _("Port")
+        prop: nport
+        flexGrow: 1
+        sortable: true
+      - name: _("Family")
+        prop: adrfam
+        flexGrow: 1
+        sortable: true
+    actions:
+      - type: iconButton
+        icon: add
+        tooltip: _("Add")
+        execute:
+          type: formDialog
+          formDialog:
+            title: _("Add port")
+            fields:
+              - type: textInput
+                name: addr
+                label: _("Address")
+                value: "0.0.0.0"
+              - type: numberInput
+                name: nport
+                label: _("TCP port")
+                value: 4420
+                min: 1
+                max: 65535
+              - type: select
+                name: adrfam
+                label: _("Address family")
+                value: ipv4
+                store:
+                  data:
+                    - ["ipv4","IPv4"]
+                    - ["ipv6","IPv6"]
+            buttons:
+              submit:
+                text: _("Add")
+                execute:
+                  type: request
+                  request:
+                    service: Nvmetcp
+                    method: setPort
+            successUrl: /services/nvmetcp/ports
+      - type: iconButton
+        icon: edit
+        tooltip: _("Edit")
+        execute:
+          type: formDialog
+          formDialog:
+            title: _("Edit port")
+            fields:
+              - type: textInput
+                name: addr
+                label: _("Address")
+                value: "{{ _selected[0].addr }}"
+              - type: numberInput
+                name: nport
+                label: _("TCP port")
+                min: 1
+                max: 65535
+                value: "{{ _selected[0].nport }}"
+              - type: select
+                name: adrfam
+                label: _("Address family")
+                store:
+                  data:
+                    - ["ipv4","IPv4"]
+                    - ["ipv6","IPv6"]
+                value: "{{ _selected[0].adrfam }}"
+              - type: hidden
+                name: uuid
+                value: '{{ _selected[0].uuid }}'
+                readonly: true
+            buttons:
+              submit:
+                text: _("Update")
+                execute:
+                  type: request
+                  request:
+                    service: Nvmetcp
+                    method: setPort
+            successUrl: /services/nvmetcp/ports
+      - template: delete
+        execute:
+          type: request
+          request:
+            service: Nvmetcp
+            method: deletePort
+            params:
+              uuid: "{{ _selected[0].uuid }}"

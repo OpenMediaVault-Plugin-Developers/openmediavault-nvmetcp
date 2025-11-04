@@ -1,0 +1,176 @@
+[
+  {
+    "type": "rpc",
+    "id": "rpc.nvmetcp.setsettings",
+    "params": {
+      "type": "object",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "required": true
+        },
+        "description": {
+          "type": "string",
+          "required": true
+        },
+        "auto_associate": {
+          "type": "boolean",
+          "required": true
+        },
+        "org_domain": {
+          "type": "string",
+          "required": true
+        },
+        "org_date": {
+          "type": "string",
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.nvmetcp.setport",
+    "params": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": false
+        },
+        "addr": {
+          "type": "string",
+          "required": true
+        },
+        "nport": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "required": true
+        },
+        "adrfam": {
+          "type": "string",
+          "enum": [
+            "ipv4",
+            "ipv6"
+          ],
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.nvmetcp.setsubsystem",
+    "params": {
+      "type": "object",
+      "properties": {
+        "type": "string",
+        "uuid": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuidv4"
+            },
+            {
+              "type": "string",
+              "maxLength": 0
+            }
+          ],
+          "required": true
+        },
+        "enable": {
+          "type": "boolean",
+          "required": true
+        },
+        "description": {
+          "type": "string",
+          "required": false
+        },
+        "nqn": {
+          "type": "string",
+          "pattern": "^nqn\\..+$",
+          "required": true
+        },
+        "model": {
+          "type": "string",
+          "required": true
+        },
+        "serial": {
+          "type": "string",
+          "required": false
+        },
+        "allow_any_host": {
+          "type": "boolean",
+          "required": true
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^nqn\\..+$"
+          },
+          "required": false
+        },
+        "namespaces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "nsid": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "required": false
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "required": true
+              },
+              "uuid": {
+                "type": "string",
+                "required": false
+              },
+              "nguid": {
+                "type": "string",
+                "required": false
+              },
+              "eui64": {
+                "type": "string",
+                "required": false
+              },
+              "readonly": {
+                "type": "boolean",
+                "required": false
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    }
+  },
+  {
+    "type": "rpc",
+    "id": "rpc.nvmetcp.setassociation",
+    "params": {
+      "type": "object",
+      "properties": {
+        "subsystemref": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": true
+        },
+        "portref": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": true
+        }
+      }
+    }
+  }
+]

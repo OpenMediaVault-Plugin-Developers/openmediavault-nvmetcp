@@ -1,0 +1,65 @@
+version: "1.0"
+type: component
+data:
+  name: omv-services-nvmetcp-subsystems-datatable-page
+  type: datatablePage
+  config:
+    autoReload: false
+    hasSearchField: true
+    stateId: 084ebe08-b80d-11f0-b988-525400be629f
+    sorters:
+      - dir: asc
+        prop: nqn
+    store:
+      proxy:
+        service: Nvmetcp
+        get:
+          method: listSubsystems
+    columns:
+      - name: _("Enable")
+        prop: enable
+        flexGrow: 1
+        sortable: true
+        cellTemplateName: checkIcon
+      - name: _("uuid")
+        prop: uuid
+        flexGrow: 1
+        sortable: true
+        hidden: true
+      - name: _("NQN")
+        prop: nqn
+        flexGrow: 2
+        sortable: true
+      - name: _("Model")
+        prop: model
+        flexGrow: 2
+        sortable: true
+      - name: _("Serial")
+        prop: serial
+        flexGrow: 1
+        sortable: true
+      - name: _("Hosts")
+        prop: hostlist
+        flexGrow: 2
+        sortable: false
+      - name: _("Namespaces")
+        prop: nslist
+        flexGrow: 2
+        sortable: false
+    actions:
+      - template: create
+        execute:
+          type: url
+          url: "/services/nvmetcp/subsystems/create"
+      - template: edit
+        execute:
+          type: url
+          url: "/services/nvmetcp/subsystems/edit/{{ _selected[0].uuid }}"
+      - template: delete
+        execute:
+          type: request
+          request:
+            service: Nvmetcp
+            method: deleteSubsystem
+            params:
+              uuid: "{{ _selected[0].uuid }}"

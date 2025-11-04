@@ -1,0 +1,136 @@
+version: "1.0"
+type: component
+data:
+  name: omv-services-nvmetcp-subsystem-form-page
+  type: formPage
+  config:
+    request:
+      service: Nvmetcp
+      get:
+        method: getSubsystem
+        params:
+          uuid: "{{ _routeParams.uuid }}"
+      post:
+        method: setSubsystem
+    fields:
+      - type: confObjUuid
+      - type: checkbox
+        name: enable
+        label: _("Enable")
+        value: false
+      - type: textInput
+        name: nqn
+        label: _("NQN")
+        placeholder: "nqn.2025-10.io.omv:subsys1"
+        validators:
+          required: true
+      - type: textInput
+        name: model
+        label: _("Model")
+        value: "OMV NVMe Target"
+      - type: textInput
+        name: serial
+        label: _("Serial")
+        value: "OMV00000001"
+      - type: checkbox
+        name: allow_any_host
+        label: _("Allow any host")
+        value: false
+      - type: datatable
+        name: hosts
+        label: _("Hosts")
+        valueType: object
+        value: []
+        columns:
+          - prop: hostnqn
+            name: _("Host NQN")
+            flexGrow: 1
+        actions:
+          - template: add
+            formDialogConfig:
+              title: _("Host NQN")
+              fields:
+                - type: textInput
+                  name: hostnqn
+                  label: _("Host NQN")
+                  validators:
+                    required: true
+          - template: delete
+      - type: datatable
+        name: namespaces
+        label: _("Namespaces")
+        valueType: object
+        value: []
+        columns:
+          - prop: nsid
+            name: _("NSID")
+            flexGrow: 1
+          - prop: path
+            name: _("Backing path")
+            flexGrow: 3
+          - prop: readonly
+            name: _("RO")
+            flexGrow: 1
+        actions:
+          - template: add
+            formDialogConfig:
+              title: _("Add namespace")
+              fields:
+                - type: numberInput
+                  name: nsid
+                  label: _("NSID")
+                  min: 1
+                  hint: _("Leave empty to auto-assign.")
+                - type: textInput
+                  name: path
+                  label: _("Backing path")
+                  validators:
+                    required: true
+                - type: textInput
+                  name: uuid
+                  label: _("UUID (opt)")
+                - type: textInput
+                  name: nguid
+                  label: _("NGUID (opt)")
+                - type: textInput
+                  name: eui64
+                  label: _("EUI-64 (opt)")
+                - type: checkbox
+                  name: readonly
+                  label: _("Read-only")
+                  value: false
+          - template: edit
+            formDialogConfig:
+              title: Edit namespace
+              fields:
+                - type: numberInput
+                  name: nsid
+                  label: _("NSID")
+                  min: 1
+                - type: textInput
+                  name: path
+                  label: _("Backing path")
+                  validators:
+                    required: true
+                - type: textInput
+                  name: uuid
+                  label: _("UUID (opt)")
+                - type: textInput
+                  name: nguid
+                  label: _("NGUID (opt)")
+                - type: textInput
+                  name: eui64
+                  label: _("EUI-64 (opt)")
+                - type: checkbox
+                  name: readonly
+                  label: _("Read-only")
+          - template: delete
+    buttons:
+      - template: submit
+        execute:
+          type: url
+          url: /services/nvmetcp/subsystems
+      - template: cancel
+        execute:
+          type: url
+          url: /services/nvmetcp/subsystems

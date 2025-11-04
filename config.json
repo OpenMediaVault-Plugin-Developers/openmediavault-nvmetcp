@@ -1,0 +1,19 @@
+{
+  "hosts": [],
+  "subsystems": [
+    {
+      "nqn": "nqn.2025-10.io.omv:subsys1",
+      "attr": { "allow_any_host": "1", "serial": "0000000000000001", "version": "1.0" },
+      "namespaces": [ { "nsid": 1, "device": { "path": "/dev/nullb0" }, "enable": 1 } ],
+      "allowed_hosts": []
+    }
+  ],
+  "ports": [
+    {
+      "portid": 1,
+      "addr": { "trtype": "tcp", "adrfam": "ipv4", "traddr": "0.0.0.0", "trsvcid": "4420" },
+      "subsystems": ["nqn.2025-10.io.omv:subsys1"],
+      "referrals": []
+    }
+  ]
+}

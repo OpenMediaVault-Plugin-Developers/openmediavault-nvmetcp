@@ -1,0 +1,5 @@
+openmediavault-nvmetcp (8.0) stable; urgency=low
+
+  * Initial release
+
+ -- OpenMediaVault Plugin Developers <plugins@omv-extras.org>  Fri, 03 Oct 2025 12:38:16 -0500

@@ -1,0 +1,190 @@
+{
+  "type": "config",
+  "id": "conf.service.nvmetcp",
+  "title": "nvmetcp",
+  "queryinfo": {
+    "xpath": "/config/services/nvmetcp",
+    "iterable": false
+  },
+  "properties": {
+    "enable": {
+      "type": "boolean",
+      "default": false
+    },
+    "description": {
+      "type": "string",
+      "default": ""
+    },
+    "auto_associate": {
+      "type": "boolean",
+      "default": true
+    },
+    "org_domain": {
+      "type": "string",
+      "default": ""
+    },
+    "org_date": {
+      "type": "string",
+      "default": ""
+    },
+    "ports": {
+      "type": "object",
+      "properties": {
+        "port": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "properties": {
+              "uuid": {
+                "type": "string",
+                "format": "uuidv4"
+              },
+              "addr": {
+                "type": "string",
+                "minLength": 1
+              },
+              "nport": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535,
+                "default": 4420
+              },
+              "adrfam": {
+                "type": "string",
+                "enum": [
+                  "ipv4",
+                  "ipv6"
+                ],
+                "default": "ipv4"
+              }
+            },
+            "required": [
+              "addr",
+              "nport",
+              "adrfam"
+            ]
+          }
+        }
+      },
+      "default": {
+        "port": []
+      }
+    },
+    "subsystems": {
+      "type": "object",
+      "properties": {
+        "subsystem": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "uuid": {
+                "type": "string",
+                "format": "uuidv4"
+              },
+              "enable": {
+                "type": "boolean",
+                "default": false
+              },
+              "description": {
+                "type": "string",
+                "default": ""
+              },
+              "nqn": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^nqn\\..+$"
+              },
+              "model": {
+                "type": "string",
+                "default": "OMV NVMe Target"
+              },
+              "serial": {
+                "type": "string",
+                "default": "OMV00000001"
+              },
+              "allow_any_host": {
+                "type": "boolean",
+                "default": false
+              },
+              "hosts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "hostnqn": {
+                      "type": "string",
+                      "pattern": "^nqn\\..+$"
+                    }
+                  }
+                }
+              },
+              "namespaces": {
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "nsid": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uuid": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "nguid": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "eui64": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "readonly": {
+                      "type": "boolean",
+                      "default": false
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "associations": {
+      "type": "object",
+      "properties": {
+        "association": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "uuid": {
+                "type": "string",
+                "format": "uuidv4"
+              },
+              "subsystemref": {
+                "type": "string",
+                "format": "uuidv4"
+              },
+              "portref": {
+                "type": "string",
+                "format": "uuidv4"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

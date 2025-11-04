@@ -1,0 +1,8 @@
+version: "1.0"
+type: navigation-item
+data:
+  path: "services.nvmetcp.associations"
+  text: _("Associations")
+  position: 40
+  icon: mdi:vector-link
+  url: "/services/nvmetcp/associations"

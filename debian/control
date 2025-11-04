@@ -1,0 +1,16 @@
+Source: openmediavault-nvmetcp
+Section: devel
+XB-Plugin-Section: network
+Priority: optional
+Maintainer: OpenMediaVault Plugin Developers <plugins@omv-extras.org>
+Build-Depends: debhelper-compat (= 14), dh-sequence-single-binary
+Standards-Version: 4.7.2
+
+Package: openmediavault-nvmetcp
+Architecture: all
+Depends: nvmetcli,
+         openmediavault (>= 8),
+         openmediavault-sharerootfs,
+         ${misc:Depends}
+Description: OpenMediaVault nvme over tcp plugin
+ Plugin to setup nvme over tcp targets.

@@ -1,0 +1,8 @@
+version: "1.0"
+type: route
+data:
+  url: "/services/nvmetcp/subsystems/edit/:uuid"
+  title: _("Edit")
+  editing: true
+  notificationTitle: _("Edit subsystem.")
+  component: omv-services-nvmetcp-subsystem-form-page

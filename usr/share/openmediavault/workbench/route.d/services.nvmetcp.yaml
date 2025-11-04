@@ -1,0 +1,6 @@
+version: "1.0"
+type: route
+data:
+  url: "/services/nvmetcp"
+  title: _("NVMe/TCP")
+  component: omv-services-nvmetcp-navigation-page

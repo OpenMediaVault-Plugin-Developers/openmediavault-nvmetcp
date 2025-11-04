@@ -1,0 +1,6 @@
+version: "1.0"
+type: route
+data:
+  url: "/services/nvmetcp/ports"
+  title: _("Ports")
+  component: omv-services-nvmetcp-ports-datatable-page
