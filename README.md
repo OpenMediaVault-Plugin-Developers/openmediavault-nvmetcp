@@ -20,9 +20,9 @@ It provides a web UI to configure ports, subsystems, namespaces, and host access
    - Namespace → Device: `/dev/sdb` (or ZFS zvol, LV, etc.)
    - (Hosts optional if "Allow any host" is ON)
 5. Click **Apply*( in OMV to deploy config)
-6. On a Linux hast:
+6. On a Linux host:
 
-``bash
+```bash
 sudo modprobe nvme-tcp
 sudo nvme discover -t tcp -a <OMV_IP> -s 4420
 sudo nvme connect -t tcp -a <OMV_IP> -s 4420 -n nqn.2025-10.io.omv:fastssd
@@ -188,17 +188,6 @@ Device appears as `/dev/nvme0n1`.
 ✔ Prefer ZFS zvols or LVM LV backing devices
 ✔ Keep NQNs stable (changing breaks initiators)
 ✔ Serial numbers must be unique
-
----
-
-## 📌 Planned Enhancements
-
-| Feature | Status |
-|---------|--------|
-| Stats / IO monitoring | ⏳ planned |
-| GUI namespace creator (device picker) | ⏳ planned |
-| Auto serial / model generation | ⏳ planned |
-| RDMA transport support | ⚠ depends on kernel |
 
 ---
 
