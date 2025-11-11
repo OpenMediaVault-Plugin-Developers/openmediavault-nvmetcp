@@ -80,7 +80,6 @@ data:
                   name: nsid
                   label: _("NSID")
                   min: 1
-                  hint: _("Leave empty to auto-assign.")
                 - type: textInput
                   name: path
                   label: _("Backing path")
@@ -89,12 +88,15 @@ data:
                 - type: textInput
                   name: uuid
                   label: _("UUID (opt)")
+                  value: ""
                 - type: textInput
                   name: nguid
                   label: _("NGUID (opt)")
+                  value: ""
                 - type: textInput
                   name: eui64
                   label: _("EUI-64 (opt)")
+                  value: ""
                 - type: checkbox
                   name: readonly
                   label: _("Read-only")
@@ -115,15 +117,19 @@ data:
                 - type: textInput
                   name: uuid
                   label: _("UUID (opt)")
+                  value: ""
                 - type: textInput
                   name: nguid
                   label: _("NGUID (opt)")
+                  value: ""
                 - type: textInput
                   name: eui64
                   label: _("EUI-64 (opt)")
+                  value: ""
                 - type: checkbox
                   name: readonly
                   label: _("Read-only")
+                  value: false
           - template: delete
     buttons:
       - template: submit

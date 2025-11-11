@@ -142,7 +142,14 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
         $db = \OMV\Config\Database::getInstance();
         $object = $db->get("conf.service.nvmetcp.port", $params['uuid']);
         // remove associations
-
+        $rows = $db->getByFilter("conf.service.nvmetcp.association", [
+            "operator" => "stringEquals",
+            "arg0" => "portref",
+            "arg1" => $params['uuid']
+        ]);
+        foreach ($rows as $row) {
+            $db->delete($row);
+        }
         // Delete the configuration object.
         $db->delete($object);
         // Return the deleted configuration object.
@@ -309,145 +316,19 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
     public function deleteSubsystem($params, $context) {
         $this->validateMethodContext($context, ["role" => OMV_ROLE_ADMINISTRATOR]);
         $this->validateMethodParams($params, "rpc.common.objectuuid");
-
         $db = \OMV\Config\Database::getInstance();
         $object = $db->get("conf.service.nvmetcp.subsystem", $params['uuid']);
-
-        // Cascade: hosts, namespaces, associations
-        $children = [
-            ["id" => "conf.service.nvmetcp.host", "field" => "subsystemref"],
-            ["id" => "conf.service.nvmetcp.namespace", "field" => "subsystemref"],
-            ["id" => "conf.service.nvmetcp.association", "field" => "subsystemref"],
-        ];
-        foreach ($children as $c) {
-            $rows = $db->getByFilter($c["id"], [
-                "operator" => "stringEquals",
-                "arg0" => $c["field"],
-                "arg1" => $params['uuid']
-            ]);
-            foreach ($rows as $row) $db->delete($row);
+        $rows = $db->getByFilter("conf.service.nvmetcp.association", [
+            "operator" => "stringEquals",
+            "arg0" => "subsystemref",
+            "arg1" => $params['uuid']
+        ]);
+        foreach ($rows as $row) {
+            $db->delete($row);
         }
-
         $db->delete($object);
         return $object->getAssoc();
     }
-
-    // ---------- Hosts (child of Subsystem) ----------
-
-    public function listHosts($params, $context) {
-        $this->validateMethodContext($context, ["role" => OMV_ROLE_ADMINISTRATOR]);
-        $this->validateMethodParams($params, "rpc.nvmetcp.listhosts"); // schema should allow optional subsystemref + paging
-        $db = \OMV\Config\Database::getInstance();
-        $objects = $db->getAssoc("conf.service.nvmetcp.host");
-        // Optional: filter by subsystemref if provided
-        if (!empty($params['subsystemref'])) {
-            $objects = array_values(array_filter($objects, fn($o) => $o['subsystemref'] === $params['subsystemref']));
-        }
-        return $this->applyFilter($objects, $params['start'], $params['limit'],
-            $params['sortfield'], $params['sortdir']);
-    }
-
-    public function getHost($params, $context) {
-        $this->validateMethodContext($context, ["role" => OMV_ROLE_ADMINISTRATOR]);
-        $this->validateMethodParams($params, "rpc.common.objectuuid");
-        $db = \OMV\Config\Database::getInstance();
-        return $db->getAssoc("conf.service.nvmetcp.host", $params['uuid']);
-    }
-
-    public function setHost($params, $context) {
-        $this->validateMethodContext($context, ['role' => OMV_ROLE_ADMINISTRATOR]);
-        $this->validateMethodParams($params, 'rpc.nvmetcp.sethost');
-
-        $object = new \OMV\Config\ConfigObject('conf.service.nvmetcp.host');
-        $object->setAssoc($params);
-
-        $db = \OMV\Config\Database::getInstance();
-        if (true === $object->isNew()) {
-            // Ensure host NQN uniqueness within the same subsystem
-            $siblings = $db->getByFilter("conf.service.nvmetcp.host", [
-                "operator" => "and",
-                "arg0" => [
-                    "operator" => "stringEquals", "arg0" => "subsystemref", "arg1" => $params['subsystemref']
-                ],
-                "arg1" => [
-                    "operator" => "stringEquals", "arg0" => "hostnqn", "arg1" => $params['hostnqn']
-                ]
-            ]);
-            if (count($siblings) > 0) {
-                throw new \OMV\Exception(gettext("Host NQN already exists in this subsystem."));
-            }
-        }
-        $db->set($object, true);
-        return $object->getAssoc();
-    }
-
-    public function deleteHost($params, $context) {
-        $this->validateMethodContext($context, ["role" => OMV_ROLE_ADMINISTRATOR]);
-        $this->validateMethodParams($params, "rpc.common.objectuuid");
-        $db = \OMV\Config\Database::getInstance();
-        $object = $db->get("conf.service.nvmetcp.host", $params['uuid']);
-        $db->delete($object);
-        return $object->getAssoc();
-    }
-
-    // ---------- Namespaces (child of Subsystem) ----------
-
-    public function listNamespaces($params, $context) {
-        $this->validateMethodContext($context, ["role" => OMV_ROLE_ADMINISTRATOR]);
-        $this->validateMethodParams($params, "rpc.nvmetcp.listnamespaces"); // schema allows optional subsystemref + paging
-        $db = \OMV\Config\Database::getInstance();
-        $objects = $db->getAssoc("conf.service.nvmetcp.namespace");
-        if (!empty($params['subsystemref'])) {
-            $objects = array_values(array_filter($objects, fn($o) => $o['subsystemref'] === $params['subsystemref']));
-        }
-        return $this->applyFilter($objects, $params['start'], $params['limit'],
-            $params['sortfield'], $params['sortdir']);
-    }
-
-    public function getNamespace($params, $context) {
-        $this->validateMethodContext($context, ["role" => OMV_ROLE_ADMINISTRATOR]);
-        $this->validateMethodParams($params, "rpc.common.objectuuid");
-        $db = \OMV\Config\Database::getInstance();
-        return $db->getAssoc("conf.service.nvmetcp.namespace", $params['uuid']);
-    }
-
-    public function setNamespace($params, $context) {
-        $this->validateMethodContext($context, ['role' => OMV_ROLE_ADMINISTRATOR]);
-        $this->validateMethodParams($params, 'rpc.nvmetcp.setnamespace');
-
-        $object = new \OMV\Config\ConfigObject('conf.service.nvmetcp.namespace');
-        $object->setAssoc($params);
-
-        $db = \OMV\Config\Database::getInstance();
-        if (true === $object->isNew()) {
-            // Ensure NSID unique within subsystem
-            $siblings = $db->getByFilter("conf.service.nvmetcp.namespace", [
-                "operator" => "and",
-                "arg0" => [
-                    "operator" => "stringEquals", "arg0" => "subsystemref", "arg1" => $params['subsystemref']
-                ],
-                "arg1" => [
-                    "operator" => "stringEquals", "arg0" => "nsid", "arg1" => (string)$params['nsid']
-                ]
-            ]);
-            if (count($siblings) > 0) {
-                throw new \OMV\Exception(gettext("Namespace ID already exists in this subsystem."));
-            }
-        }
-        $db->set($object, true);
-        return $object->getAssoc();
-    }
-
-    public function deleteNamespace($params, $context) {
-        $this->validateMethodContext($context, ["role" => OMV_ROLE_ADMINISTRATOR]);
-        $this->validateMethodParams($params, "rpc.common.objectuuid");
-        $db = \OMV\Config\Database::getInstance();
-        $object = $db->get("conf.service.nvmetcp.namespace", $params['uuid']);
-        $db->delete($object);
-        return $object->getAssoc();
-    }
-
-    // ---------- Associations (optional) ----------
 
     public function listAssociations($params, $context) {
         $this->validateMethodContext($context, ["role" => OMV_ROLE_ADMINISTRATOR]);
