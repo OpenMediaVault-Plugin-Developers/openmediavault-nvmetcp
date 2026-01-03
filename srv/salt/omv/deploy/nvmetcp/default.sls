@@ -1,6 +1,6 @@
 # @license   http://www.gnu.org/licenses/gpl.html GPL Version 3
 # @author    OpenMediaVault Plugin Developers <plugins@omv-extras.org>
-# @copyright Copyright (c) 2025 openmediavault plugin developers
+# @copyright Copyright (c) 2025-2026 openmediavault plugin developers
 
 {% set config = salt['omv_conf.get']('conf.service.nvmetcp') %}
 
