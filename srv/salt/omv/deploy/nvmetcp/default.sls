@@ -21,7 +21,7 @@ nvmet_tcp_module:
   file.directory:
     - user: root
     - group: root
-    - mode: 0755
+    - mode: '0755'
 
 {# Local IPv4s (include loopback) #}
 {% set local_ips = salt['network.ip_addrs'](include_loopback=True) %}
