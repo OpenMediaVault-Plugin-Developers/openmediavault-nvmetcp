@@ -148,6 +148,13 @@ cleanup() {
         rpc "$SVC" setSettings "$ORIG_SETTINGS" >/dev/null 2>&1 || true
     fi
 
+    # Deploy pending config changes so the OMV web UI "apply changes" banner
+    # does not linger after this test run. Runs detached/async so the script
+    # returns promptly; --append-dirty clears the dirty-module markers (the
+    # banner) once the deploy completes.
+    info "Deploying pending config changes asynchronously (clears web UI banner)"
+    nohup omv-salt deploy run --quiet --append-dirty >/dev/null 2>&1 &
+
     echo >&2
     echo -e "${BOLD}Results: ${GREEN}${PASS} passed${NC}, ${RED}${FAIL} failed${NC}" >&2
     if [ ${#FAILED_TESTS[@]} -gt 0 ]; then
@@ -254,7 +261,7 @@ section "Subsystems — create"
 
 assert_rpc "setSubsystem creates new subsystem (auto NQN)" \
     "$SVC" setSubsystem \
-    '{"uuid":"","enable":true,"description":"test subsystem","nqn":"nqn.2014-08.io.omv:test-nvmetcp-1","model":"OMV NVMe Target","serial":"TEST0001","allow_any_host":true,"hosts":[],"namespaces":[{"path":"/dev/null","readonly":false}]}' \
+    '{"uuid":"","enable":true,"description":"test subsystem","nqn":"nqn.2014-08.io.omv:test-nvmetcp-1","model":"OMV NVMe Target","serial":"TEST0001","allow_any_host":true,"hosts":[],"namespaces":[{"path":"/dev/null"}]}' \
     '"uuid"'
 SS_UUID=$(json_field "$RPC_OUT" "uuid")
 info "SS_UUID=$SS_UUID"
@@ -295,7 +302,7 @@ section "Subsystems — update"
 
 assert_rpc "setSubsystem updates description" \
     "$SVC" setSubsystem \
-    "{\"uuid\":\"$SS_UUID\",\"enable\":true,\"description\":\"updated\",\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0001\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":[{\"path\":\"/dev/null\",\"readonly\":false}]}" \
+    "{\"uuid\":\"$SS_UUID\",\"enable\":true,\"description\":\"updated\",\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0001\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":[{\"path\":\"/dev/null\"}]}" \
     '"updated"'
 
 # ---------------------------------------------------------------------------
@@ -311,7 +318,7 @@ assert_rpc "enumerateSubsystems returns only enabled subsystems" \
 # Disable SS_UUID and confirm it disappears from enumeration
 assert_rpc "setSubsystem disables first subsystem" \
     "$SVC" setSubsystem \
-    "{\"uuid\":\"$SS_UUID\",\"enable\":false,\"description\":\"updated\",\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0001\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":[{\"path\":\"/dev/null\",\"readonly\":false}]}"
+    "{\"uuid\":\"$SS_UUID\",\"enable\":false,\"description\":\"updated\",\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0001\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":[{\"path\":\"/dev/null\"}]}"
 
 ENUM_OUT=$(rpc "$SVC" enumerateSubsystems '{}' 2>&1)
 if echo "$ENUM_OUT" | grep -q "test-nvmetcp-1"; then
@@ -324,7 +331,7 @@ fi
 # Re-enable for association tests
 assert_rpc "setSubsystem re-enables first subsystem" \
     "$SVC" setSubsystem \
-    "{\"uuid\":\"$SS_UUID\",\"enable\":true,\"description\":\"updated\",\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0001\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":[{\"path\":\"/dev/null\",\"readonly\":false}]}"
+    "{\"uuid\":\"$SS_UUID\",\"enable\":true,\"description\":\"updated\",\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0001\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":[{\"path\":\"/dev/null\"}]}"
 
 # ---------------------------------------------------------------------------
 section "Associations — create"
