@@ -188,6 +188,18 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
         return (bool)preg_match($pattern2, $nqn);
     }
 
+    private function asList($value): array {
+        if (!is_array($value) || empty($value)) return [];
+        return array_is_list($value) ? $value : [$value];
+    }
+
+    private function subsystemAssoc(\OMV\Config\ConfigObject $object): array {
+        $assoc = $object->getAssoc();
+        $assoc['hosts'] = $this->asList($assoc['hosts'] ?? []);
+        $assoc['namespaces'] = $this->asList($assoc['namespaces'] ?? []);
+        return $assoc;
+    }
+
     // ---------- Subsystems ----------
 
     public function listSubsystems($params, $context)
@@ -207,7 +219,7 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
                 $hosttext = [gettext("Any host")];
             } else {
                 $hosttext = [gettext("None")];
-                $hosts = (array) ($objectv->get("hosts") ?? []);
+                $hosts = $this->asList($objectv->get("hosts"));
                 $hostNqns = [];
                 foreach ($hosts as $h) {
                     if ($h instanceof \OMV\Config\ConfigObject) {
@@ -225,7 +237,7 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
 
             // ----- Namespaces summary -----
             $nstext = [gettext("None")];
-            $namespaces = (array) ($objectv->get("namespaces") ?? []);
+            $namespaces = $this->asList($objectv->get("namespaces"));
             $nsParts = [];
             foreach ($namespaces as $ns) {
                 // Support both ConfigObject rows and associative arrays
@@ -252,10 +264,11 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
             }
 
             // Attach computed fields
-            $objectv->add("hostlist", "array", $hosttext);
-            $objectv->add("nslist", "array", $nstext);
+            $assoc = $this->subsystemAssoc($objectv);
+            $assoc['hostlist'] = $hosttext;
+            $assoc['nslist'] = $nstext;
 
-            $objectsAssoc[] = $objectv->getAssoc();
+            $objectsAssoc[] = $assoc;
         }
 
         // Filter the result.
@@ -272,7 +285,7 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
         $db = \OMV\Config\Database::getInstance();
         $object = $db->get("conf.service.nvmetcp.subsystem", $params['uuid']);
         // Return the configuration object.
-        return $object->getAssoc();
+        return $this->subsystemAssoc($object);
     }
 
     public function setSubsystem($params, $context) {
@@ -465,8 +478,7 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
             }
 
             // ----- Count namespaces -----
-            $namespaces = (array) ($obj->get("namespaces") ?? []);
-            // In your current model this is a flat array of namespace rows.
+            $namespaces = $this->asList($obj->get("namespaces"));
             $nsCount = 0;
             foreach ($namespaces as $ns) {
                 // Basic sanity: must have a path
@@ -484,7 +496,7 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
             $allowAny = (bool) $obj->get("allow_any_host");
             $hostCount = 0;
             if (!$allowAny) {
-                $hosts = (array) ($obj->get("hosts") ?? []);
+                $hosts = $this->asList($obj->get("hosts"));
                 foreach ($hosts as $h) {
                     if ($h instanceof \OMV\Config\ConfigObject) {
                         $val = (string) $h->get("hostnqn");
