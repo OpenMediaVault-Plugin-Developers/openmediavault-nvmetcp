@@ -116,17 +116,15 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
         $this->validateMethodParams($params, 'rpc.nvmetcp.setport');
         // set to new uuid constant if none found
         $newuuid = \OMV\Environment::get('OMV_CONFIGOBJECT_NEW_UUID');
-        if (!isset($params) || empty($params['uuid'])) {
-            $params['uuid'] == $newuuid;
+        if (empty($params['uuid'])) {
+            $params['uuid'] = $newuuid;
         }
         // Prepare the configuration object.
         $object = new \OMV\Config\ConfigObject('conf.service.nvmetcp.port');
         $object->setAssoc($params);
         // Set the configuration object.
         $db = \OMV\Config\Database::getInstance();
-        if (TRUE === $object->isNew()) {
-            $db->assertIsUnique($object, 'nport');
-        }
+        $db->assertIsUnique($object, 'nport');
         $db->set($object);
         // Return the configuration object.
         return $object->getAssoc();
@@ -158,9 +156,9 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
 
 
     private function buildTargetNqn(string $name): string {
-        $s = $this->loadSettingsAssoc();
-        $orgDomain = strtolower(trim((string)($s["org_domain"] ?? "io.omv")));
-        $orgDate   = strtolower(trim((string)($s["org_date"] ?? "2014-08")));
+        $s = \OMV\Config\Database::getInstance()->getAssoc('conf.service.nvmetcp');
+        $orgDomain = strtolower(trim((string)($s["org_domain"] ?? "")));
+        $orgDate   = strtolower(trim((string)($s["org_date"] ?? "")));
 
         $orgDomain = preg_replace('~[^a-z0-9.-]+~', '', $orgDomain);
         $orgDomain = trim($orgDomain, '.-');
@@ -206,9 +204,9 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
             // ----- Hosts summary -----
             $allowAny = (bool) $objectv->get("allow_any_host");
             if ($allowAny) {
-                $hosttext = gettext("Any host");
+                $hosttext = [gettext("Any host")];
             } else {
-                $hosttext = gettext("None");
+                $hosttext = [gettext("None")];
                 $hosts = (array) ($objectv->get("hosts") ?? []);
                 $hostNqns = [];
                 foreach ($hosts as $h) {
@@ -221,12 +219,12 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
                     }
                 }
                 if (!empty($hostNqns)) {
-                    $hosttext = implode('<br/>', $hostNqns);
+                    $hosttext = $hostNqns;
                 }
             }
 
             // ----- Namespaces summary -----
-            $nstext = gettext("None");
+            $nstext = [gettext("None")];
             $namespaces = (array) ($objectv->get("namespaces") ?? []);
             $nsParts = [];
             foreach ($namespaces as $ns) {
@@ -234,11 +232,9 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
                 if ($ns instanceof \OMV\Config\ConfigObject) {
                     $nsid = $ns->get("nsid");
                     $path = (string) $ns->get("path");
-                    $ro   = (bool) $ns->get("readonly");
                 } else {
                     $nsid = $ns["nsid"] ?? null;
                     $path = (string) ($ns["path"] ?? "");
-                    $ro   = (bool) ($ns["readonly"] ?? false);
                 }
                 if ($path === "") {
                     continue; // path is required; skip bad rows defensively
@@ -249,18 +245,15 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
                     $label .= (int) $nsid . ":";
                 }
                 $label .= $path;
-                if ($ro) {
-                    $label .= " (ro)";
-                }
                 $nsParts[] = $label;
             }
             if (!empty($nsParts)) {
-                $nstext = implode('<br/>', $nsParts);
+                $nstext = $nsParts;
             }
 
             // Attach computed fields
-            $objectv->add("hostlist", "string", $hosttext);
-            $objectv->add("nslist", "string", $nstext);
+            $objectv->add("hostlist", "array", $hosttext);
+            $objectv->add("nslist", "array", $nstext);
 
             $objectsAssoc[] = $objectv->getAssoc();
         }
@@ -284,32 +277,54 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
 
     public function setSubsystem($params, $context) {
         $this->validateMethodContext($context, ['role' => OMV_ROLE_ADMINISTRATOR]);
-        #$this->validateMethodParams($params, 'rpc.nvmetcp.setsubsystem');
-        $db = \OMV\Config\Database::getInstance();
+        $this->validateMethodParams($params, 'rpc.nvmetcp.setsubsystem');
         // set to new uuid constant if none found
-        $newuuid = \OMV\Environment::get('OMV_CONFIGOBJECT_NEW_UUID');
-        if (!isset($params['uuid']) || empty($params['uuid']) || $params['uuid'] == '') {
-            $params['uuid'] = $newuuid;
+        if (empty($params['uuid'])) {
+            $params['uuid'] = \OMV\Environment::get('OMV_CONFIGOBJECT_NEW_UUID');
         }
+        // Generate the NQN if none was given.
+        $nqn = trim((string)($params['nqn'] ?? ''));
+        if ($nqn === '') {
+            $nqn = $this->buildTargetNqn((string)($params['description'] ?? ''));
+        }
+        if (!$this->isValidNqn($nqn)) {
+            throw new \OMV\Exception(gettext("Invalid NQN format."));
+        }
+        $params['nqn'] = $nqn;
+        // nvmetcli requires an NSID for every namespace; assign the next
+        // free one to namespaces that have none.
+        $namespaces = $params['namespaces'] ?? [];
+        $used = [];
+        foreach ($namespaces as $ns) {
+            if (isset($ns['nsid']) && $ns['nsid'] !== '') {
+                $nsid = (int) $ns['nsid'];
+                if (in_array($nsid, $used, true)) {
+                    throw new \OMV\Exception(sprintf(
+                        gettext("Duplicate NSID %d."), $nsid));
+                }
+                $used[] = $nsid;
+            }
+        }
+        $next = 1;
+        foreach ($namespaces as &$ns) {
+            if (isset($ns['nsid']) && $ns['nsid'] !== '') {
+                $ns['nsid'] = (int) $ns['nsid'];
+                continue;
+            }
+            while (in_array($next, $used, true)) $next++;
+            $ns['nsid'] = $next;
+            $used[] = $next;
+        }
+        unset($ns);
+        $params['namespaces'] = $namespaces;
+        // Prepare the configuration object.
         $object = new \OMV\Config\ConfigObject('conf.service.nvmetcp.subsystem');
         $object->setAssoc($params);
         // Set the configuration object.
         $db = \OMV\Config\Database::getInstance();
-        if (TRUE === $object->isNew()) {
-            $name = trim((string)($params['name'] ?? 'subsystem'));
-            $nqn  = trim((string)($params['nqn'] ?? ''));
-            if ($nqn === '') $nqn = $this->buildTargetNqn($name);
-            if (!$this->isValidNqn($nqn))
-                throw new \OMV\Exception(gettext("Invalid NQN format."));
-            $params['nqn'] = $nqn;
-        }
-        $object->setAssoc($params);
-
-        if (TRUE === $object->isNew()) {
-            // Ensure NQN uniqueness across subsystems
-            $db->assertIsUnique($object, 'nqn');
-        }
-        $db->set($object, true);
+        // Ensure NQN uniqueness across subsystems
+        $db->assertIsUnique($object, 'nqn');
+        $db->set($object);
         return $object->getAssoc();
     }
 
@@ -338,19 +353,28 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
 
         $objectsAssoc = [];
         foreach ($objects as $objectk => &$objectv) {
-            $port = $db->get("conf.service.nvmetcp.port", $objectv->get("portref"));
-            $ss = $db->get("conf.service.nvmetcp.subsystem", $objectv->get("subsystemref"));
-            $address = $port->get("addr");
-            $nport = $port->get("nport");
-            $family = $port->get("adrfam");
-            $portdesc = sprintf('%s:%s (%s)', $address, $nport, $family);
+            $portdesc = gettext("n/a");
+            if ($db->exists("conf.service.nvmetcp.port", [
+                "operator" => "stringEquals",
+                "arg0" => "uuid",
+                "arg1" => $objectv->get("portref")
+            ])) {
+                $port = $db->get("conf.service.nvmetcp.port", $objectv->get("portref"));
+                $portdesc = sprintf('%s:%s (%s)', $port->get("addr"),
+                    $port->get("nport"), $port->get("adrfam"));
+            }
             $objectv->add("portdesc", "string", $portdesc);
 
-            $ss = $db->get("conf.service.nvmetcp.subsystem", $objectv->get("subsystemref"));
-            $nqn = $ss->get("nqn");
-            $model = $ss->get("model");
-            $serial = $ss->get("serial");
-            $ssdesc = sprintf('%s [%s] [%s]', $nqn, $model, $serial);
+            $ssdesc = gettext("n/a");
+            if ($db->exists("conf.service.nvmetcp.subsystem", [
+                "operator" => "stringEquals",
+                "arg0" => "uuid",
+                "arg1" => $objectv->get("subsystemref")
+            ])) {
+                $ss = $db->get("conf.service.nvmetcp.subsystem", $objectv->get("subsystemref"));
+                $ssdesc = sprintf('%s [%s] [%s]', $ss->get("nqn"),
+                    $ss->get("model"), $ss->get("serial"));
+            }
             $objectv->add("ssdesc", "string", $ssdesc);
 
             $objectsAssoc[] = $objectv->getAssoc();
@@ -374,6 +398,9 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
         $object->setAssoc($params);
 
         $db = \OMV\Config\Database::getInstance();
+        // Make sure the referenced objects exist.
+        $db->get("conf.service.nvmetcp.port", $params['portref']);
+        $db->get("conf.service.nvmetcp.subsystem", $params['subsystemref']);
         if (true === $object->isNew()) {
             // Ensure unique pair portref+subsystemref
             $siblings = $db->getByFilter("conf.service.nvmetcp.association", [
@@ -385,7 +412,7 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
                 throw new \OMV\Exception(gettext("Association already exists."));
             }
         }
-        $db->set($object, true);
+        $db->set($object);
         return $object->getAssoc();
     }
 
@@ -471,9 +498,8 @@ class OMVRpcServiceNvmetcp extends \OMV\Rpc\ServiceAbstract
             }
 
             // ----- Build display text -----
-            $statusSuffix = $enable ? '' : ' [disabled]';
             $hostPart = $allowAny ? 'any host' : sprintf('%d host%s', $hostCount, $hostCount === 1 ? '' : 's');
-            $desc = sprintf('%s%s — %d ns, %s', $nqn !== '' ? $nqn : $uuid, $statusSuffix, $nsCount, $hostPart);
+            $desc = sprintf('%s — %d ns, %s', $nqn !== '' ? $nqn : $uuid, $nsCount, $hostPart);
 
             $subsystems[] = [
                 'uuid' => $uuid,

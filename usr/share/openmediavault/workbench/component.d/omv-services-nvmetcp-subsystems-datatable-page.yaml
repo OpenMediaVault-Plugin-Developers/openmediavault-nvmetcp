@@ -41,10 +41,12 @@ data:
       - name: _("Hosts")
         prop: hostlist
         flexGrow: 2
+        cellTemplateName: unsortedList
         sortable: false
       - name: _("Namespaces")
         prop: nslist
         flexGrow: 2
+        cellTemplateName: unsortedList
         sortable: false
     actions:
       - template: create

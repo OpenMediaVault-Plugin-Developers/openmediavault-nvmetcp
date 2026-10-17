@@ -1,0 +1,156 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the openmediavault-nvmetcp package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: openmediavault-nvmetcp\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-31 01:24+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Add"
+msgstr ""
+
+msgid "Add association"
+msgstr ""
+
+msgid "Add namespace"
+msgstr ""
+
+msgid "Add port"
+msgstr ""
+
+msgid "Address"
+msgstr ""
+
+msgid "Address family"
+msgstr ""
+
+msgid "Allow any host"
+msgstr ""
+
+msgid "Any host"
+msgstr ""
+
+msgid "Association already exists."
+msgstr ""
+
+msgid "Associations"
+msgstr ""
+
+msgid "Auto-associate ports and subsystems"
+msgstr ""
+
+msgid "Backing path"
+msgstr ""
+
+msgid "Create"
+msgstr ""
+
+msgid "Create subsystem."
+msgstr ""
+
+msgid "Date"
+msgstr ""
+
+msgid "Description"
+msgstr ""
+
+msgid "Domain"
+msgstr ""
+
+msgid "EUI-64 (opt)"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Edit port"
+msgstr ""
+
+msgid "Edit subsystem."
+msgstr ""
+
+msgid "Enable"
+msgstr ""
+
+msgid "Family"
+msgstr ""
+
+msgid "Generated NQN failed validation."
+msgstr ""
+
+msgid "Host NQN"
+msgstr ""
+
+msgid "Hosts"
+msgstr ""
+
+msgid "Invalid NQN format."
+msgstr ""
+
+msgid "Model"
+msgstr ""
+
+msgid "NGUID (opt)"
+msgstr ""
+
+msgid "NQN"
+msgstr ""
+
+msgid "NSID"
+msgstr ""
+
+msgid "NVMe/TCP"
+msgstr ""
+
+msgid "Namespaces"
+msgstr ""
+
+msgid "None"
+msgstr ""
+
+msgid "Port"
+msgstr ""
+
+msgid "Ports"
+msgstr ""
+
+msgid "RO"
+msgstr ""
+
+msgid "Read-only"
+msgstr ""
+
+msgid "Serial"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Subsystem"
+msgstr ""
+
+msgid "Subsystems"
+msgstr ""
+
+msgid "TCP port"
+msgstr ""
+
+msgid "UUID (opt)"
+msgstr ""
+
+msgid "Update"
+msgstr ""
+
+msgid "uuid"
+msgstr ""

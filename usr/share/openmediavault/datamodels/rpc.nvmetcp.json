@@ -66,19 +66,9 @@
     "params": {
       "type": "object",
       "properties": {
-        "type": "string",
         "uuid": {
-          "oneOf": [
-            {
-              "type": "string",
-              "format": "uuidv4"
-            },
-            {
-              "type": "string",
-              "maxLength": 0
-            }
-          ],
-          "required": true
+          "type": "string",
+          "required": false
         },
         "enable": {
           "type": "boolean",
@@ -90,15 +80,17 @@
         },
         "nqn": {
           "type": "string",
-          "pattern": "^nqn\\..+$",
-          "required": true
+          "pattern": "^$|^nqn\\..+$",
+          "required": false
         },
         "model": {
           "type": "string",
+          "maxLength": 40,
           "required": true
         },
         "serial": {
           "type": "string",
+          "maxLength": 20,
           "required": false
         },
         "allow_any_host": {
@@ -108,8 +100,14 @@
         "hosts": {
           "type": "array",
           "items": {
-            "type": "string",
-            "pattern": "^nqn\\..+$"
+            "type": "object",
+            "properties": {
+              "hostnqn": {
+                "type": "string",
+                "pattern": "^nqn\\..+$",
+                "required": true
+              }
+            }
           },
           "required": false
         },
@@ -142,10 +140,6 @@
               "eui64": {
                 "type": "string",
                 "required": false
-              },
-              "readonly": {
-                "type": "boolean",
-                "required": false
               }
             }
           },
@@ -160,6 +154,11 @@
     "params": {
       "type": "object",
       "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuidv4",
+          "required": false
+        },
         "subsystemref": {
           "type": "string",
           "format": "uuidv4",

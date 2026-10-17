@@ -68,9 +68,6 @@ data:
           - prop: path
             name: _("Backing path")
             flexGrow: 3
-          - prop: readonly
-            name: _("RO")
-            flexGrow: 1
         actions:
           - template: add
             formDialogConfig:
@@ -97,13 +94,9 @@ data:
                   name: eui64
                   label: _("EUI-64 (opt)")
                   value: ""
-                - type: checkbox
-                  name: readonly
-                  label: _("Read-only")
-                  value: false
           - template: edit
             formDialogConfig:
-              title: Edit namespace
+              title: _("Edit namespace")
               fields:
                 - type: numberInput
                   name: nsid
@@ -126,10 +119,6 @@ data:
                   name: eui64
                   label: _("EUI-64 (opt)")
                   value: ""
-                - type: checkbox
-                  name: readonly
-                  label: _("Read-only")
-                  value: false
           - template: delete
     buttons:
       - template: submit

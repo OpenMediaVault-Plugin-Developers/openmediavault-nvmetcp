@@ -23,20 +23,12 @@ nvmet_tcp_module:
     - group: root
     - mode: '0755'
 
-{# Local IPv4s (include loopback) #}
-{% set local_ips = salt['network.ip_addrs'](include_loopback=True) %}
-
-{# Prefer non-loopback RFC1918, else 127.0.0.1, else 0.0.0.0 #}
-{% set preferred_ip = '0.0.0.0' %}
-{% for ip in local_ips %}
-  {% if ip != '127.0.0.1' and (ip.startswith('10.') or ip.startswith('192.168.') or ip.startswith('172.')) %}
-    {% set preferred_ip = ip %}
-    {% break %}
-  {% endif %}
-{% endfor %}
-{% if preferred_ip == '0.0.0.0' and '127.0.0.1' in local_ips %}
-  {% set preferred_ip = '127.0.0.1' %}
-{% endif %}
+{# Local addresses per family (include loopback) #}
+{% set local_ips = {
+  'ipv4': salt['network.ip_addrs'](include_loopback=True),
+  'ipv6': salt['network.ip_addrs6'](include_loopback=True)
+} %}
+{% set wildcard = { 'ipv4': '0.0.0.0', 'ipv6': '::' } %}
 
 {# ------------------------------ #
  # Ports list (validated traddr)  #
@@ -46,12 +38,13 @@ nvmet_tcp_module:
 {% for p in (config.get('ports', {}).get('port', []) ) %}
   {% set portid = loop.index %}
   {% set addrfam = p.get('adrfam', 'ipv4') %}
-  {% set requested = p.get('addr', '') %}
-  {# choose a bindable address #}
-  {% if not requested or (requested not in local_ips and requested not in ['0.0.0.0']) %}
-    {% set traddr = preferred_ip %}
-  {% else %}
+  {% if addrfam not in wildcard %}{% set addrfam = 'ipv4' %}{% endif %}
+  {% set requested = p.get('addr', '') | trim %}
+  {# use the configured address if bindable, else listen on all addresses #}
+  {% if requested and (requested == wildcard[addrfam] or requested in local_ips[addrfam]) %}
     {% set traddr = requested %}
+  {% else %}
+    {% set traddr = wildcard[addrfam] %}
   {% endif %}
   {% set trsvcid = (p.get('nport', 4420) | int) %}
 
@@ -85,20 +78,31 @@ nvmet_tcp_module:
 
   {# namespaces (list). Only include supported keys and correct types. #}
   {% set ns_out = [] %}
+  {% set used_nsids = [] %}
+  {% for ns in (ss.get('namespaces') or []) %}
+    {% set nsid = ns.get('nsid') | int(0) %}
+    {% if nsid > 0 %}{% do used_nsids.append(nsid) %}{% endif %}
+  {% endfor %}
   {% for ns in (ss.get('namespaces') or []) %}
     {% set path = ns.get('path', '') %}
     {% if not path %}{% continue %}{% endif %}
 
-    {% set nsid = ns.get('nsid') %}
+    {# nvmetcli skips namespaces without an nsid; assign the next free one #}
+    {% set ns_id = namespace(value=(ns.get('nsid') | int(0))) %}
+    {% if ns_id.value < 1 %}
+      {% for i in range(1, used_nsids | length + 2) if i not in used_nsids %}
+        {% if loop.first %}{% set ns_id.value = i %}{% do used_nsids.append(i) %}{% endif %}
+      {% endfor %}
+    {% endif %}
+    {% set nsid = ns_id.value %}
     {% set ns_enable = 1 if (ns.get('enable', True)) else 0 %}
 
+    {# the kernel only exposes device_path, device_uuid and device_nguid #}
     {% set dev = { 'path': path } %}
     {% if ns.get('uuid') %}{% do dev.update({'uuid': ns['uuid']}) %}{% endif %}
     {% if ns.get('nguid') %}{% do dev.update({'nguid': ns['nguid']}) %}{% endif %}
-    {% if ns.get('eui64') %}{% do dev.update({'eui64': ns['eui64']}) %}{% endif %}
 
-    {% set nsrec = { 'device': dev, 'enable': ns_enable } %}
-    {% if nsid is not none and nsid != '' %}{% do nsrec.update({'nsid': (nsid | int)}) %}{% endif %}
+    {% set nsrec = { 'device': dev, 'enable': ns_enable, 'nsid': nsid } %}
 
     {% do ns_out.append(nsrec) %}
   {% endfor %}
@@ -117,7 +121,12 @@ nvmet_tcp_module:
 
   {% set ss_obj = {
     'nqn': nqn,
-    'attr': { 'allow_any_host': allow_any, 'serial': '0000000000000001', 'version': '1.0' },
+    'attr': {
+      'allow_any_host': allow_any,
+      'serial': ss.get('serial') or '0000000000000001',
+      'model': ss.get('model') or 'OMV NVMe Target',
+      'version': '1.0'
+    },
     'namespaces': ns_out,
     'allowed_hosts': allowed_hosts
   } %}
