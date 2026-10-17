@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: openmediavault-nvmetcp\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-31 01:24+0000\n"
+"POT-Creation-Date: 2026-10-17 14:43+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -68,10 +68,16 @@ msgstr ""
 msgid "Domain"
 msgstr ""
 
+msgid "Duplicate NSID %d."
+msgstr ""
+
 msgid "EUI-64 (opt)"
 msgstr ""
 
 msgid "Edit"
+msgstr ""
+
+msgid "Edit namespace"
 msgstr ""
 
 msgid "Edit port"
@@ -125,12 +131,6 @@ msgstr ""
 msgid "Ports"
 msgstr ""
 
-msgid "RO"
-msgstr ""
-
-msgid "Read-only"
-msgstr ""
-
 msgid "Serial"
 msgstr ""
 
@@ -150,6 +150,9 @@ msgid "UUID (opt)"
 msgstr ""
 
 msgid "Update"
+msgstr ""
+
+msgid "n/a"
 msgstr ""
 
 msgid "uuid"
