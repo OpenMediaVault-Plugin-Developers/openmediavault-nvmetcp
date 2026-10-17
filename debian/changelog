@@ -8,6 +8,8 @@ openmediavault-nvmetcp (8.0.1) experimental; urgency=low
   * Use the configured subsystem serial and model
   * Re-enable setSubsystem parameter validation
   * Fix NQN generation, uniqueness checks on edit, and list display
+  * Fix subsystems with a single host or namespace being returned as an
+    object instead of a list
 
  -- OpenMediaVault Plugin Developers <plugins@omv-extras.org>  Sat, 17 Oct 2026 12:00:00 -0500
 
