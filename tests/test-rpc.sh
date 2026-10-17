@@ -98,6 +98,54 @@ json_field() {
         "import sys,json; d=json.load(sys.stdin); print(d.get('$field',''))" 2>/dev/null || true
 }
 
+# Assert a Python expression over the parsed JSON (bound to "d") is true.
+assert_json() {
+    local desc=$1 json=$2 expr=$3 ec=0 out
+    out=$(echo "$json" | python3 -c \
+        "import sys,json; d=json.load(sys.stdin); sys.exit(0 if ($expr) else 1)" 2>&1) || ec=$?
+    if [ $ec -eq 0 ]; then
+        _pass "$desc"
+    else
+        _fail "$desc" "Expression '$expr' false for: ${json:0:300}${out:+ ($out)}"
+    fi
+}
+
+# Dirty-module tracking (drives the web UI "apply changes" banner).
+DIRTY_FILE=$(. /etc/default/openmediavault 2>/dev/null; \
+    echo "${OMV_ENGINED_DIRTY_MODULES_FILE:-/var/lib/openmediavault/dirtymodules.json}")
+
+is_dirty() {
+    [ -f "$DIRTY_FILE" ] || return 1
+    python3 -c "import sys,json; sys.exit(0 if '$1' in json.load(open('$DIRTY_FILE')) else 1)" \
+        2>/dev/null
+}
+
+# Remove a single module from the dirty list.  The module is marked dirty
+# again by the change under test and deployed by the cleanup handler.
+clear_dirty() {
+    [ -f "$DIRTY_FILE" ] || return 0
+    python3 - "$DIRTY_FILE" "$1" <<'EOF'
+import json, sys
+path, mod = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    mods = json.load(f)
+with open(path, "w") as f:
+    json.dump([m for m in mods if m != mod], f)
+EOF
+}
+
+assert_marks_dirty() {
+    local desc=$1; shift
+    clear_dirty nvmetcp
+    if ! "$@" >/dev/null 2>&1; then
+        _fail "$desc" "RPC call failed"
+    elif is_dirty nvmetcp; then
+        _pass "$desc"
+    else
+        _fail "$desc" "nvmetcp not in $DIRTY_FILE"
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -116,6 +164,9 @@ PORT2_UUID=""
 SS_UUID=""
 SS2_UUID=""
 ORIG_SETTINGS=""
+ASSOC2_UUID=""
+PORT3_UUID=""
+SS3_UUID=""
 
 # ---------------------------------------------------------------------------
 # Cleanup — always runs on exit
@@ -123,6 +174,18 @@ ORIG_SETTINGS=""
 cleanup() {
     section "Cleanup"
 
+    if [ -n "$ASSOC2_UUID" ]; then
+        info "Deleting association $ASSOC2_UUID"
+        rpc "$SVC" deleteAssociation "{\"uuid\":\"$ASSOC2_UUID\"}" >/dev/null 2>&1 || true
+    fi
+    if [ -n "$SS3_UUID" ]; then
+        info "Deleting subsystem $SS3_UUID"
+        rpc "$SVC" deleteSubsystem "{\"uuid\":\"$SS3_UUID\"}" >/dev/null 2>&1 || true
+    fi
+    if [ -n "$PORT3_UUID" ]; then
+        info "Deleting port $PORT3_UUID"
+        rpc "$SVC" deletePort "{\"uuid\":\"$PORT3_UUID\"}" >/dev/null 2>&1 || true
+    fi
     if [ -n "$ASSOC_UUID" ]; then
         info "Deleting association $ASSOC_UUID"
         rpc "$SVC" deleteAssociation "{\"uuid\":\"$ASSOC_UUID\"}" >/dev/null 2>&1 || true
@@ -197,6 +260,13 @@ assert_rpc "setSettings accepts non-standard org_date (no server-side format che
     '{"enable":false,"description":"","auto_associate":true,"org_domain":"io.omv","org_date":"not-a-date"}' \
     '"org_date"'
 
+GET_SETTINGS=$(rpc "$SVC" getSettings '{}' 2>&1)
+assert_json "getSettings omits ports/subsystems/associations" "$GET_SETTINGS" \
+    "not ({'ports','subsystems','associations'} & set(d))"
+
+assert_rpc_fails "setSettings rejects missing required field" \
+    "$SVC" setSettings '{"enable":false}'
+
 # ---------------------------------------------------------------------------
 section "Ports — create"
 # ---------------------------------------------------------------------------
@@ -255,6 +325,45 @@ assert_rpc "setPort restores addr to 127.0.0.1" \
     "{\"uuid\":\"$PORT_UUID\",\"addr\":\"127.0.0.1\",\"nport\":4421,\"adrfam\":\"ipv4\"}" \
     '"127.0.0.1"'
 
+# The web UI "Add port" dialog sends no uuid at all.
+assert_rpc "setPort without uuid creates new port (4424)" \
+    "$SVC" setPort \
+    '{"addr":"127.0.0.1","nport":4424,"adrfam":"ipv4"}' \
+    '"uuid"'
+PORT3_UUID=$(json_field "$RPC_OUT" "uuid")
+info "PORT3_UUID=$PORT3_UUID"
+if [ -z "$PORT3_UUID" ] || [ "$PORT3_UUID" = "$OMV_NEW_UUID" ]; then
+    _fail "setPort without uuid assigns a real uuid" "uuid='$PORT3_UUID'"
+    PORT3_UUID=""
+else
+    _pass "setPort without uuid assigns a real uuid"
+fi
+
+assert_rpc_fails "setPort rejects editing nport to one already in use" \
+    "$SVC" setPort \
+    "{\"uuid\":\"$PORT2_UUID\",\"addr\":\"127.0.0.1\",\"nport\":4421,\"adrfam\":\"ipv4\"}"
+
+assert_rpc "setPort allows saving a port with its own nport" \
+    "$SVC" setPort \
+    "{\"uuid\":\"$PORT2_UUID\",\"addr\":\"127.0.0.1\",\"nport\":4422,\"adrfam\":\"ipv4\"}" \
+    '"uuid"'
+
+assert_rpc_fails "setPort rejects nport 0" \
+    "$SVC" setPort \
+    "{\"uuid\":\"$OMV_NEW_UUID\",\"addr\":\"127.0.0.1\",\"nport\":0,\"adrfam\":\"ipv4\"}"
+
+assert_rpc_fails "setPort rejects nport 65536" \
+    "$SVC" setPort \
+    "{\"uuid\":\"$OMV_NEW_UUID\",\"addr\":\"127.0.0.1\",\"nport\":65536,\"adrfam\":\"ipv4\"}"
+
+assert_rpc_fails "setPort rejects unknown address family" \
+    "$SVC" setPort \
+    "{\"uuid\":\"$OMV_NEW_UUID\",\"addr\":\"127.0.0.1\",\"nport\":4425,\"adrfam\":\"ib\"}"
+
+assert_marks_dirty "setPort marks nvmetcp dirty" \
+    rpc "$SVC" setPort \
+    "{\"uuid\":\"$PORT3_UUID\",\"addr\":\"127.0.0.1\",\"nport\":4424,\"adrfam\":\"ipv4\"}"
+
 # ---------------------------------------------------------------------------
 section "Subsystems — create"
 # ---------------------------------------------------------------------------
@@ -305,6 +414,140 @@ assert_rpc "setSubsystem updates description" \
     "{\"uuid\":\"$SS_UUID\",\"enable\":true,\"description\":\"updated\",\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0001\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":[{\"path\":\"/dev/null\"}]}" \
     '"updated"'
 
+# Base JSON (without namespaces) for updates of the first subsystem.
+ss1_params() {
+    echo "{\"uuid\":\"$SS_UUID\",\"enable\":true,\"description\":\"updated\",\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0001\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":$1}"
+}
+
+assert_marks_dirty "setSubsystem marks nvmetcp dirty" \
+    rpc "$SVC" setSubsystem "$(ss1_params '[{"path":"/dev/null"}]')"
+
+# ---------------------------------------------------------------------------
+section "Subsystems — validation"
+# ---------------------------------------------------------------------------
+
+assert_rpc_fails "setSubsystem rejects NQN without nqn. prefix" \
+    "$SVC" setSubsystem \
+    '{"uuid":"","enable":false,"nqn":"iqn.2014-08.io.omv:bad","model":"OMV NVMe Target","serial":"BAD1","allow_any_host":true,"hosts":[],"namespaces":[]}'
+
+assert_rpc_fails "setSubsystem rejects host NQN without nqn. prefix" \
+    "$SVC" setSubsystem \
+    '{"uuid":"","enable":false,"nqn":"nqn.2014-08.io.omv:bad-host","model":"OMV NVMe Target","serial":"BAD2","allow_any_host":false,"hosts":[{"hostnqn":"host1"}],"namespaces":[]}'
+
+assert_rpc_fails "setSubsystem rejects plain-string hosts entries" \
+    "$SVC" setSubsystem \
+    '{"uuid":"","enable":false,"nqn":"nqn.2014-08.io.omv:bad-host2","model":"OMV NVMe Target","serial":"BAD3","allow_any_host":false,"hosts":["nqn.2014-08.io.omv:h"],"namespaces":[]}'
+
+assert_rpc_fails "setSubsystem rejects serial longer than 20 characters" \
+    "$SVC" setSubsystem \
+    '{"uuid":"","enable":false,"nqn":"nqn.2014-08.io.omv:bad-serial","model":"OMV NVMe Target","serial":"123456789012345678901","allow_any_host":true,"hosts":[],"namespaces":[]}'
+
+assert_rpc_fails "setSubsystem rejects model longer than 40 characters" \
+    "$SVC" setSubsystem \
+    '{"uuid":"","enable":false,"nqn":"nqn.2014-08.io.omv:bad-model","model":"12345678901234567890123456789012345678901","serial":"BAD4","allow_any_host":true,"hosts":[],"namespaces":[]}'
+
+assert_rpc_fails "setSubsystem rejects missing required field (enable)" \
+    "$SVC" setSubsystem \
+    '{"uuid":"","nqn":"nqn.2014-08.io.omv:bad-missing","model":"OMV NVMe Target","allow_any_host":true,"namespaces":[]}'
+
+assert_rpc_fails "setSubsystem rejects namespace without path" \
+    "$SVC" setSubsystem "$(ss1_params '[{"nsid":1}]')"
+
+assert_rpc_fails "setSubsystem rejects nsid 0" \
+    "$SVC" setSubsystem "$(ss1_params '[{"nsid":0,"path":"/dev/null"}]')"
+
+assert_rpc_fails "setSubsystem rejects duplicate NSID" \
+    "$SVC" setSubsystem "$(ss1_params '[{"nsid":1,"path":"/dev/null"},{"nsid":1,"path":"/dev/zero"}]')"
+
+assert_rpc_fails "setSubsystem rejects removed readonly namespace field" \
+    "$SVC" setSubsystem "$(ss1_params '[{"path":"/dev/null","readonly":true}]')"
+
+assert_rpc_fails "setSubsystem rejects editing NQN to one already in use" \
+    "$SVC" setSubsystem \
+    "{\"uuid\":\"$SS2_UUID\",\"enable\":true,\"nqn\":\"nqn.2014-08.io.omv:test-nvmetcp-1\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0002\",\"allow_any_host\":false,\"hosts\":[{\"hostnqn\":\"nqn.2014-08.io.omv:initiator-test\"}],\"namespaces\":[]}"
+
+# ---------------------------------------------------------------------------
+section "Subsystems — NSID assignment"
+# ---------------------------------------------------------------------------
+
+assert_rpc "setSubsystem assigns NSIDs to namespaces without one" \
+    "$SVC" setSubsystem "$(ss1_params '[{"path":"/dev/null"},{"path":"/dev/zero"}]')"
+assert_json "missing NSIDs become 1 and 2" "$RPC_OUT" \
+    "[n['nsid'] for n in d['namespaces']] == [1, 2]"
+
+assert_rpc "setSubsystem skips NSIDs already in use" \
+    "$SVC" setSubsystem "$(ss1_params '[{"path":"/dev/null"},{"nsid":1,"path":"/dev/zero"},{"nsid":null,"path":"/dev/full"}]')"
+assert_json "assigned NSIDs avoid explicit ones" "$RPC_OUT" \
+    "{n['path']: n['nsid'] for n in d['namespaces']} == {'/dev/zero': 1, '/dev/null': 2, '/dev/full': 3}"
+
+GET_OUT=$(rpc "$SVC" getSubsystem "{\"uuid\":\"$SS_UUID\"}" 2>&1)
+assert_json "assigned NSIDs are persisted" "$GET_OUT" \
+    "sorted(n['nsid'] for n in d['namespaces']) == [1, 2, 3]"
+assert_json "stored namespaces have no readonly field" "$GET_OUT" \
+    "all('readonly' not in n for n in d['namespaces'])"
+
+# Restore the single namespace used by later tests.
+assert_rpc "setSubsystem restores single namespace" \
+    "$SVC" setSubsystem "$(ss1_params '[{"path":"/dev/null"}]')"
+
+# ---------------------------------------------------------------------------
+section "Subsystems — NQN generation"
+# ---------------------------------------------------------------------------
+
+assert_rpc "setSettings sets NQN domain/date" \
+    "$SVC" setSettings \
+    '{"enable":false,"description":"","auto_associate":true,"org_domain":"Example.COM","org_date":"2020-01"}' \
+    '"org_domain"'
+
+assert_rpc "setSubsystem generates NQN when empty" \
+    "$SVC" setSubsystem \
+    '{"uuid":"","enable":false,"description":"Auto NQN Test!","nqn":"","model":"OMV NVMe Target","serial":"TEST0003","allow_any_host":true,"hosts":[],"namespaces":[]}' \
+    '"uuid"'
+SS3_UUID=$(json_field "$RPC_OUT" "uuid")
+info "SS3_UUID=$SS3_UUID"
+assert_json "generated NQN uses settings and slugged description" "$RPC_OUT" \
+    "d['nqn'] == 'nqn.2020-01.example.com:auto-nqn-test'"
+
+assert_rpc_fails "setSubsystem rejects a second identical generated NQN" \
+    "$SVC" setSubsystem \
+    '{"uuid":"","enable":false,"description":"auto nqn test","nqn":"","model":"OMV NVMe Target","serial":"TEST0004","allow_any_host":true,"hosts":[],"namespaces":[]}'
+
+assert_rpc "setSettings with malformed date/domain" \
+    "$SVC" setSettings \
+    '{"enable":false,"description":"","auto_associate":true,"org_domain":"..","org_date":"bad"}' \
+    '"org_domain"'
+
+assert_rpc "setSubsystem generates NQN with default domain/date" \
+    "$SVC" setSubsystem \
+    "{\"uuid\":\"$SS3_UUID\",\"enable\":false,\"description\":\"\",\"nqn\":\"\",\"model\":\"OMV NVMe Target\",\"serial\":\"TEST0003\",\"allow_any_host\":true,\"hosts\":[],\"namespaces\":[]}"
+assert_json "fallback NQN is nqn.2014-08.io.omv:subsystem" "$RPC_OUT" \
+    "d['nqn'] == 'nqn.2014-08.io.omv:subsystem'"
+
+# ---------------------------------------------------------------------------
+section "Subsystems — list format"
+# ---------------------------------------------------------------------------
+
+LIST_OUT=$(rpc "$SVC" listSubsystems "$LIST_PARAMS" 2>&1)
+assert_json "listSubsystems hostlist/nslist are arrays" "$LIST_OUT" \
+    "all(isinstance(r['hostlist'], list) and isinstance(r['nslist'], list) for r in d['data'])"
+assert_json "listSubsystems lists allowed host NQNs" "$LIST_OUT" \
+    "[r['hostlist'] for r in d['data'] if r['uuid'] == '$SS2_UUID'] == [['nqn.2014-08.io.omv:initiator-test']]"
+assert_json "listSubsystems lists namespaces as nsid:path" "$LIST_OUT" \
+    "[r['nslist'] for r in d['data'] if r['uuid'] == '$SS_UUID'] == [['1:/dev/null']]"
+assert_json "listSubsystems contains no HTML" "$LIST_OUT" \
+    "'<br' not in json.dumps(d)"
+
+# A single host/namespace is stored as one XML element; it must still be
+# returned as a one-element list (the edit form's datatables need arrays).
+GET_SS2=$(rpc "$SVC" getSubsystem "{\"uuid\":\"$SS2_UUID\"}" 2>&1)
+assert_json "getSubsystem returns a single host as a list" "$GET_SS2" \
+    "d['hosts'] == [{'hostnqn': 'nqn.2014-08.io.omv:initiator-test'}]"
+GET_SS1=$(rpc "$SVC" getSubsystem "{\"uuid\":\"$SS_UUID\"}" 2>&1)
+assert_json "getSubsystem returns a single namespace as a list" "$GET_SS1" \
+    "isinstance(d['namespaces'], list) and [n['path'] for n in d['namespaces']] == ['/dev/null']"
+assert_json "getSubsystem returns no hosts as an empty list" "$GET_SS1" \
+    "d['hosts'] == []"
+
 # ---------------------------------------------------------------------------
 section "Enumerate"
 # ---------------------------------------------------------------------------
@@ -314,6 +557,14 @@ assert_rpc "enumeratePorts returns array" \
 
 assert_rpc "enumerateSubsystems returns only enabled subsystems" \
     "$SVC" enumerateSubsystems '{}' '"uuid"'
+assert_json "enumerateSubsystems excludes disabled generated subsystem" "$RPC_OUT" \
+    "all(r['uuid'] != '$SS3_UUID' for r in d)"
+assert_json "enumerateSubsystems describes namespaces and hosts" "$RPC_OUT" \
+    "any(r['uuid'] == '$SS_UUID' and r['desc'].endswith('1 ns, any host') for r in d) and any(r['uuid'] == '$SS2_UUID' and r['desc'].endswith('0 ns, 1 host') for r in d)"
+
+ENUM_PORTS=$(rpc "$SVC" enumeratePorts '{}' 2>&1)
+assert_json "enumeratePorts describes addr:port (family)" "$ENUM_PORTS" \
+    "any(r['uuid'] == '$PORT_UUID' and r['desc'] == '127.0.0.1:4421 (ipv4)' for r in d)"
 
 # Disable SS_UUID and confirm it disappears from enumeration
 assert_rpc "setSubsystem disables first subsystem" \
@@ -366,6 +617,55 @@ assert_rpc "getAssociation returns correct portref" \
 
 assert_rpc_fails "getAssociation with unknown UUID fails" \
     "$SVC" getAssociation '{"uuid":"00000000-0000-0000-0000-000000000000"}'
+
+LIST_ASSOC=$(rpc "$SVC" listAssociations "$LIST_PARAMS" 2>&1)
+assert_json "listAssociations describes port and subsystem" "$LIST_ASSOC" \
+    "any(r['uuid'] == '$ASSOC_UUID' and r['portdesc'] == '127.0.0.1:4421 (ipv4)' and r['ssdesc'].startswith('nqn.2014-08.io.omv:test-nvmetcp-1 ') for r in d['data'])"
+
+# ---------------------------------------------------------------------------
+section "Associations — more"
+# ---------------------------------------------------------------------------
+
+# The web UI "Add association" dialog sends no uuid at all.
+clear_dirty nvmetcp
+assert_rpc "setAssociation without uuid creates link" \
+    "$SVC" setAssociation \
+    "{\"portref\":\"$PORT2_UUID\",\"subsystemref\":\"$SS_UUID\"}" \
+    '"uuid"'
+ASSOC2_UUID=$(json_field "$RPC_OUT" "uuid")
+info "ASSOC2_UUID=$ASSOC2_UUID"
+if is_dirty nvmetcp; then
+    _pass "setAssociation marks nvmetcp dirty"
+else
+    _fail "setAssociation marks nvmetcp dirty" "nvmetcp not in $DIRTY_FILE"
+fi
+
+assert_rpc_fails "setAssociation rejects unknown port" \
+    "$SVC" setAssociation \
+    "{\"portref\":\"00000000-0000-4000-8000-000000000000\",\"subsystemref\":\"$SS_UUID\"}"
+
+assert_rpc_fails "setAssociation rejects unknown subsystem" \
+    "$SVC" setAssociation \
+    "{\"portref\":\"$PORT2_UUID\",\"subsystemref\":\"00000000-0000-4000-8000-000000000000\"}"
+
+assert_rpc_fails "setAssociation rejects invalid uuid format" \
+    "$SVC" setAssociation \
+    "{\"portref\":\"not-a-uuid\",\"subsystemref\":\"$SS_UUID\"}"
+
+assert_marks_dirty "deleteAssociation marks nvmetcp dirty" \
+    rpc "$SVC" deleteAssociation "{\"uuid\":\"$ASSOC2_UUID\"}"
+ASSOC2_UUID=""
+
+# ---------------------------------------------------------------------------
+section "Deletes — unknown objects"
+# ---------------------------------------------------------------------------
+
+assert_rpc_fails "deletePort with unknown UUID fails" \
+    "$SVC" deletePort '{"uuid":"00000000-0000-4000-8000-000000000000"}'
+assert_rpc_fails "deleteSubsystem with unknown UUID fails" \
+    "$SVC" deleteSubsystem '{"uuid":"00000000-0000-4000-8000-000000000000"}'
+assert_rpc_fails "deleteAssociation with unknown UUID fails" \
+    "$SVC" deleteAssociation '{"uuid":"00000000-0000-4000-8000-000000000000"}'
 
 # ---------------------------------------------------------------------------
 section "Cascade deletes"
