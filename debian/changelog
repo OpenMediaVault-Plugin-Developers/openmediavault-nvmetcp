@@ -1,3 +1,16 @@
+openmediavault-nvmetcp (8.0.1) experimental; urgency=low
+
+  * Remove the namespace read-only option; it was never supported by the
+    kernel nvmet target
+  * Fix subsystem and association changes not marking the config dirty
+  * Fix port address selection and IPv6 listeners
+  * Auto-assign missing namespace NSIDs
+  * Use the configured subsystem serial and model
+  * Re-enable setSubsystem parameter validation
+  * Fix NQN generation, uniqueness checks on edit, and list display
+
+ -- OpenMediaVault Plugin Developers <plugins@omv-extras.org>  Sat, 17 Oct 2026 12:00:00 -0500
+
 openmediavault-nvmetcp (8.0) experimental; urgency=low
 
   * Initial release
